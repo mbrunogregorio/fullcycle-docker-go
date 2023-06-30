@@ -1,34 +1,15 @@
-FROM golang:1.18-bullseye as base
+FROM golang as builder
 
-RUN adduser \
-  --disabled-password \
-  --gecos "" \
-  --home "/nonexistent" \
-  --shell "/sbin/nologin" \
-  --no-create-home \
-  --uid 65532 \
-  small-user
+WORKDIR /app
 
-WORKDIR $GOPATH/src/fullcycle/app/
+COPY *.go /app
 
-RUN go mod init fullcycle
-
-COPY . .
-
-RUN go mod download
-RUN go mod verify
-
-RUN CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build -o /fullcycle .
+RUN go build -ldflags "-s -w" fullcycle.go
 
 FROM scratch
 
-COPY --from=base /usr/share/zoneinfo /usr/share/zoneinfo
-COPY --from=base /etc/ssl/certs/ca-certificates.crt /etc/ssl/certs/
-COPY --from=base /etc/passwd /etc/passwd
-COPY --from=base /etc/group /etc/group
+WORKDIR /app
 
-COPY --from=base /fullcycle .
+COPY --from=builder /app/fullcycle /app/fullcycle
 
-USER small-user:small-user
-
-CMD ["./fullcycle"]
+CMD [ "/app/fullcycle" ]
